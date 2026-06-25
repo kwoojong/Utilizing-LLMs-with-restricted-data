@@ -1,0 +1,523 @@
+---
+title: "Coding Physical Intimate Partner Violence in Suicide Narratives with a Local LLM"
+subtitle: "A step-by-step, transparent walkthrough of the coding pipeline"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+# This document is a TRANSPARENCY WALKTHROUGH, not an executable analysis.
+# Code chunks are shown for documentation but are not run when the file is knit
+# (eval = FALSE), because the underlying narratives are restricted data and the
+# model is served locally. The goal is to let a reader follow exactly what the
+# procedure does, step by step.
+knitr::opts_chunk$set(eval = FALSE, echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+## What this document is
+
+This is a complete, readable record of how we use a **locally hosted large
+language model (LLM)** to code suicide case narratives for evidence of
+**physical intimate partner violence (IPV)** in the period before the death.
+
+It is written so that another researcher can follow every step and understand
+exactly what the model is asked, how its answers are captured, and how the
+results are assembled — *without* needing to run anything and *without* access
+to the underlying data.
+
+A few framing points before the code:
+
+- **Why a local model.** The narratives are sensitive, restricted-access
+  records. We run an open-weight model (`llama3.2:3b`) locally through
+  [Ollama](https://ollama.com), so the text never leaves the analysis machine
+  and is never sent to a third-party API.
+- **Two narratives per case.** Each case has two separate source reports: a
+  **law enforcement (LE)** narrative and a **coroner/medical examiner (ME)**
+  narrative. They describe the decedent and the circumstances before the death
+  from two different vantage points.
+- **Each report is coded on its own.** We deliberately send one narrative to
+  the model at a time. The model never sees both reports together, so a code
+  for the LE narrative cannot be influenced by the ME narrative or vice versa.
+- **Determinism.** The model is queried with `temperature = 0`, which makes its
+  output as reproducible as the model allows for a given prompt.
+
+---
+
+## Background: how this fits into the larger study
+
+The script below is one piece of a larger study. This section explains the
+reasoning behind it — the parts a reader needs to understand the method but that
+the code itself does not show — and mirrors what is reported in the manuscript.
+
+### The data and the task
+
+The narratives come from the National Violent Death Reporting System (NVDRS),
+covering 2003–2019. Every suicide case in this data includes **two** narratives
+written by different sources: a **law enforcement (LE)** report and a
+**coroner/medical examiner (ME)** report. Each describes the person's background
+and the circumstances leading up to the death.
+
+The goal here is narrow and specific: decide whether **physical** intimate
+partner violence appears in the circumstances before the suicide, and record it
+as a simple yes/no (1 or 0). We focused on *physical* IPV — rather than emotional
+or sexual IPV — because physical violence usually shows up as concrete,
+observable actions (someone was hit, choked, and so on). That makes it easier to
+define clearly and to code consistently than more subjective forms of abuse.
+
+### A human-coded "answer key"
+
+Before involving any model, the research team hand-coded the cases to create a
+gold-standard reference set — the yardstick the model is later measured against.
+Working from an existing coding framework, the team built a codebook, refined it
+over three rounds of pilot testing on a random sample of 120 cases, and resolved
+disagreements through discussion until they reached full agreement. Two coders
+then independently coded all cases, and two additional team members reviewed the
+initial results and any unclear cases. In the end, **86 cases (11.1%)** were
+identified as involving physical IPV before the suicide. Every model's output is
+ultimately compared back to this human-coded set.
+
+### Why four models, shown as one
+
+This walkthrough shows the pipeline for a single model, but the study actually
+ran **four** small, open-weight models from four different developers:
+
+- **Llama 3.2** (3 billion parameters)
+- **Gemma 3** (4B)
+- **Qwen 2.5** (3B)
+- **Phi-3 mini** (3.8B)
+
+We deliberately chose small models (all under 4 billion parameters) for
+practical reasons. Despite their size, they still handle language well enough to
+interpret context and follow instructions; they are small enough to run on an
+ordinary personal laptop, with no high-end GPU required; and using models from
+different organizations lets us compare their performance and later combine them.
+This matters for reproducibility: another researcher without specialized
+computing equipment can repeat the approach.
+
+The code is **identical for every model** — only the model's name changes — so it
+is shown once here rather than repeated four times.
+
+### Running everything locally
+
+All four models were downloaded with [Ollama](https://ollama.com) and then run
+completely offline. An internet connection was needed only to download the
+models the first time; after that, no case data ever left the machine. All
+processing happened on a secure, password-protected standalone laptop, so the
+sensitive narratives stayed entirely within the local environment. (This is why
+the code talks to a model at `localhost`, not a web address.)
+
+### How the prompt was developed
+
+The instruction block in Step 4 is the **final** version of the prompt, and it
+did not start out that way. The first prompt was more elaborate: it used a
+"few-shot" style (a handful of worked coding examples), included definitions and
+the acronyms that appear in the narratives, and asked the model to produce a
+single combined code for each case.
+
+We refined the prompt over **three rounds of pilot testing on about 10% of the
+data (n = 75)**:
+
+1. **First, on 10 cases.** The initial prompt produced a lot of
+   misclassification, so it needed substantial revision.
+2. **Then, on 15 more cases**, using the revised prompt, with small wording
+   tweaks afterward — for example, adding the instruction *"Code 1 ONLY when
+   there is clear and explicit evidence of a physical violent act."*
+3. **Finally, on 50 more cases**, to lock in the standardized prompt used for the
+   full dataset.
+
+Two lessons from that testing shaped the final prompt. First, **shorter and more
+direct worked better**: the worked examples and acronym list were removed to
+reduce complexity, and wording drawn from the NVDRS narratives themselves was
+used instead. Second, we **simplified the unit of coding**: instead of asking the
+model to merge both narratives into one case-level decision, the final prompt
+asks it to code each report (LE and ME) **separately**. That second change is
+exactly the design this walkthrough follows.
+
+---
+
+## Step 1 — Packages
+
+The pipeline relies on a small set of packages: `httr` (HTTP requests to the
+local model), `jsonlite` (JSON handling), `readxl` / `writexl` (Excel I/O),
+`stringr` (text parsing), and `dplyr` (data manipulation).
+
+```{r install, eval=FALSE}
+# Run once, if these are not already installed.
+# install.packages(c("httr", "jsonlite", "readxl", "stringr",
+#                     "dplyr", "writexl"))
+```
+
+```{r libraries}
+library(httr)
+library(jsonlite)
+library(readxl)
+library(stringr)
+library(dplyr)
+library(writexl)
+```
+
+---
+
+## Step 2 — Working directory and project folder
+
+We point R at the project folder. Everything else (the data file, the output
+folder) is referenced *relative* to this location, so the script is portable
+across machines as long as the folder layout is the same.
+
+```{r setwd}
+setwd("~/Documents/R/LLM sample")
+getwd()  # confirm we are where we expect to be
+
+# Create an output folder if it does not already exist.
+if (!dir.exists("output")) dir.create("output")
+```
+
+---
+
+## Step 3 — Read the data
+
+The input is an Excel file already structured in **long format** — that is, one
+row per *narrative* rather than one row per case. Because each case has two
+narratives (LE and ME), a single case appears across two rows. The file has the
+following columns:
+
+| Column        | Meaning                                  |
+|---------------|------------------------------------------|
+| `case_id`     | Case identifier                          |
+| `report_type` | Which narrative the row is (`LE` or `ME`)|
+| `report`      | The narrative text to be coded           |
+
+Storing the data this way means **no reshaping is needed**: every row already
+holds a single narrative, tagged with the case it belongs to and which source it
+came from, which is exactly what lets the model code one report at a time.
+Reading the file is therefore a single step.
+
+```{r read-data}
+data_long <- read_excel("data/LLM sample.xlsx")
+
+# Make sure the key columns are plain text (character), so the prompt and the
+# loops downstream behave consistently. Adjust the column names on the left if
+# yours differ.
+data_long <- data_long %>%
+  mutate(
+    case_id     = as.character(case_id),
+    report_type = as.character(report_type),
+    report      = as.character(report)
+  )
+
+head(data_long)
+```
+
+If your column names differ from `case_id`, `report_type`, and `report`, either
+rename them when you read the file or update the names used in the rest of the
+script so they match.
+
+---
+
+## Step 4 — The coding prompt
+
+This is the heart of the method and the part most worth scrutinizing. The
+function below wraps a single narrative in a fixed instruction block. **Every
+narrative receives exactly this prompt**, with only the narrative text changing.
+
+The instructions encode a deliberately conservative coding standard:
+
+- **Default to 0.** The model is told to assume *no* physical IPV unless the
+  text gives explicit evidence otherwise.
+- **Explicit acts only.** A code of 1 requires a clearly described physical act
+  (e.g., hit, choke, stab) between intimate partners — not inference, conflict,
+  or vague mentions of "abuse."
+- **Timing matters.** Violence is coded 1 only when it is recent or connected to
+  the circumstances of the death; distant, unconnected history is coded 0.
+- **Who is an intimate partner** is defined narrowly (partners and ex-partners,
+  not other relatives).
+- **Role-neutral.** The decedent may be victim, perpetrator, or both; the code
+  reflects whether partner violence occurred, not who initiated it.
+- **Output is a bare number.** The model is asked to return only `0` or `1`,
+  with no labels or explanation, which keeps parsing simple and unambiguous.
+
+```{r build-prompt}
+build_prompt <- function(report_text) {
+  paste0(
+"You are coding suicide case narratives for evidence of physical intimate partner violence (IPV) prior to the suicide.
+
+Task:
+Determine whether physical intimate partner violence is present (1) or not present (0).
+
+Important coding standard:
+- Default to 0.
+- Code 1 ONLY when there is clear and explicit evidence of a physical violent act.
+- Do NOT infer, assume, or guess.
+- If the evidence is vague, indirect, or uncertain, code 0.
+
+Definitions:
+Intimate partner:
+Spouse, fiance, boyfriend/girlfriend, dating partner, ex-partner, or significant other.
+Do NOT include family members or other relatives.
+
+Physical violence:
+Code 1 ONLY if the narrative explicitly describes a physical act that causes or attempts to cause bodily harm between intimate partners.
+
+Valid examples:
+Physically abusive, hit, slap, punch, push, choke, kick, beat, stab, shoot, burn, physically assault.
+
+Timing rule:
+- Code 1 only if the physical violence appears to be recent or related to the circumstances before the suicide.
+- If the violence is described only as a distant or past event with no clear connection to suicide, code 0.
+
+NOT physical violence:
+- No known physical altercation
+- Harm themselves
+- arguments
+- relationship conflict
+- divorce or separation
+- restraining orders alone
+- jealousy
+- verbal fights
+- emotional distress
+- vague mention of abuse without specific physical harm
+- past violence not connected to suicide
+
+If you are unsure, code 0.
+
+Role clarification:
+The decedent may be a victim, a perpetrator, or both.
+Code based on whether physical violence occurred between partners, regardless of who initiated it.
+
+Return ONLY a single number:
+0 = no physical intimate partner violence
+1 = physical intimate partner violence present
+Do not include any text, labels, or explanation.
+
+Narrative:
+", report_text)
+}
+```
+
+---
+
+## Step 5 — Querying the local model
+
+This function sends a prompt to the Ollama server running on the same machine
+(`localhost:11434`) and returns the model's text response. Setting
+`temperature = 0` requests the most deterministic output, and `stream = FALSE`
+returns the full answer in a single response object.
+
+```{r query-ollama}
+query_ollama <- function(prompt_text, model_name = "llama3.2:3b") {
+  res <- POST(
+    url  = "http://localhost:11434/api/generate",
+    body = list(
+      model   = model_name,
+      prompt  = prompt_text,
+      stream  = FALSE,
+      options = list(temperature = 0)  # deterministic
+    ),
+    encode = "json"
+  )
+  stop_for_status(res)
+  content(res, as = "parsed", type = "application/json")$response
+}
+```
+
+The pipeline is shown with the selected model, but the **same `query_ollama()`
+function was used for all four models** during the study — only the `model_name`
+argument changed (for example, `"gemma3"`, `"qwen2.5:3b"`, or `"phi3:mini"`).
+That is why a single version of the code is enough to document the whole
+procedure.
+
+---
+
+## Step 6 — Parsing the model's answer
+
+The prompt asks for a bare `0` or `1`, so the parser simply extracts the first
+`0`/`1` from the (trimmed) response and returns it as an integer. If nothing
+usable is found, it returns `NA` rather than guessing.
+
+Crucially, we keep the model's **raw output** alongside the parsed code (see the
+loops below). That makes every decision auditable: if a parsed value ever looks
+wrong, the original text is right there to check against.
+
+```{r parse-output}
+parse_output <- function(text) {
+  m <- str_extract(str_trim(text), "[01]")
+  data.frame(Physical = ifelse(is.na(m), NA_integer_, as.integer(m)))
+}
+```
+
+---
+
+## Step 7 — Test a single case first
+
+Before running anything at scale, we inspect one prompt in full and look at the
+model's answer. This confirms the prompt reads the way we intend and that the
+model returns a clean, parseable response.
+
+```{r test-one}
+test_prompt <- build_prompt(data_long$report[1])
+cat(test_prompt)
+
+test_result <- query_ollama(test_prompt)
+cat(test_result)
+parse_output(test_result)
+```
+
+---
+
+## Step 8 — Run a small batch as a sanity check
+
+Next we code just the first five rows. This is a guard against silently
+applying a flawed prompt or a misconfigured model to the entire dataset: it is
+much cheaper to catch a problem on five rows than on the full file.
+
+Each iteration builds the prompt, queries the model (wrapped in `tryCatch` so a
+single failure records an error string instead of halting the whole run), parses
+the answer, and stores the case ID, report type, raw output, and parsed code
+together.
+
+```{r small-batch}
+small_data   <- data_long[1:5, ]
+results_list <- vector("list", nrow(small_data))
+
+for (i in seq_len(nrow(small_data))) {
+  cat("Running row", i, "of", nrow(small_data), "\n")
+
+  prompt_i <- build_prompt(small_data$report[i])
+
+  raw_result <- tryCatch(
+    query_ollama(prompt_i),
+    error = function(e) paste("ERROR:", e$message)
+  )
+
+  parsed_result <- parse_output(raw_result)
+
+  results_list[[i]] <- cbind(
+    data.frame(
+      case_id     = small_data$case_id[i],
+      report_type = small_data$report_type[i],
+      raw_output  = raw_result,
+      stringsAsFactors = FALSE
+    ),
+    parsed_result
+  )
+}
+
+small_results <- bind_rows(results_list)
+small_results
+```
+
+Once these five rows look right — sensible codes, raw outputs that match the
+codes — we proceed to the full dataset.
+
+---
+
+## Step 9 — Run the full dataset
+
+The full run is identical in structure to the small batch, just over every row
+of `data_long`. The result is one row per narrative, each carrying its case ID,
+report type (LE or ME), the model's raw text, and the parsed `Physical` code.
+
+```{r full-run}
+results_list <- vector("list", nrow(data_long))
+
+for (i in seq_len(nrow(data_long))) {
+  cat("Running row", i, "of", nrow(data_long), "\n")
+
+  prompt_i <- build_prompt(data_long$report[i])
+
+  raw_result <- tryCatch(
+    query_ollama(prompt_i),
+    error = function(e) paste("ERROR:", e$message)
+  )
+
+  parsed <- parse_output(raw_result)
+
+  results_list[[i]] <- cbind(
+    data.frame(
+      case_id     = data_long$case_id[i],
+      report_type = data_long$report_type[i],
+      raw_output  = raw_result,
+      stringsAsFactors = FALSE
+    ),
+    parsed
+  )
+}
+
+results_long <- bind_rows(results_list)
+```
+
+---
+
+## Step 10 — Save the results
+
+Finally we write the coded results to the `output/` folder. The saved file keeps
+the raw model output next to each code, so the results remain fully auditable
+after the fact.
+
+```{r save}
+write_xlsx(results_long, "output/results_llama3.2_3b.xlsx")
+```
+
+If you want one code per *case* rather than per report, you can collapse the two
+rows afterward (for example, flagging a case as 1 if either its LE or ME code is
+1) — but note that this combining rule is then applied transparently in R,
+rather than being left to the model.
+
+---
+
+## Beyond this script: case-level coding, validation, and ensembles
+
+The code above stops where one model finishes coding every narrative. In the
+full study, three further steps follow — described here in plain language so the
+walkthrough matches the manuscript, even though they are not the focus of this
+script.
+
+### From two report codes to one case code
+
+Because each report (LE and ME) is coded separately, every case ends up with two
+codes. The team combined them into a single **case-level** code using a simple
+rule: a case counts as physical IPV (1) if **either** its LE report **or** its ME
+report was coded 1; otherwise it is 0. This combining step is done by the
+research team in R — not by the model — so the rule is explicit and consistent.
+
+### Checking the codes against the human "answer key"
+
+Each model's case-level codes were then compared with the human-coded reference
+set to see how well the model did. Five measures were used:
+
+- **Accuracy** — the share of all cases the model classified correctly.
+- **Recall (sensitivity)** — of the cases that truly involved physical IPV, the
+  share the model successfully caught.
+- **Precision** — of the cases the model flagged as physical IPV, the share that
+  truly were.
+- **F1 score** — a single balanced number that combines precision and recall.
+- **Cohen's kappa** — how much the model and the human coders agreed, adjusted
+  for the agreement you would expect by chance alone.
+
+### Combining models (ensembles)
+
+Finally, because the four models had somewhat different strengths, their outputs
+were combined to see whether the group did better than any single model. Two
+strategies were tested: a **majority vote** (use whichever code most of the four
+models chose) and a **performance-based rule** (when the models disagreed, give
+more weight to the models that had scored better on the F1 score and Cohen's
+kappa).
+
+---
+
+## Transparency and reproducibility notes
+
+- **Exact prompt.** The instruction block in Step 4 is applied verbatim to every
+  narrative; nothing is added or removed per case.
+- **Model and settings.** Results were produced with `llama3.2:3b` served
+  locally via Ollama at `temperature = 0`. Different models, model versions, or
+  temperatures can change the output, so these are reported explicitly.
+- **Raw outputs retained.** Every parsed code is stored next to the model's
+  original response, so any code can be checked against what the model actually
+  said.
+- **Known limitations.** An LLM may occasionally deviate from the requested
+  format or apply the coding standard imperfectly. A human audit of a sample of
+  cases — comparing `raw_output` to the parsed `Physical` code — is recommended
+  before treating the codes as final.
+- **Data access.** The narratives are restricted and are not distributed with
+  this document. Only the procedure is shared here; reproducing the numbers
+  requires separately authorized access to the source data.
