@@ -34,8 +34,7 @@ The walkthrough shows the pipeline for a single model, but the study ran **four*
 - **Qwen 2.5** (3B)
 - **Phi-3 mini** (3.8B)
 
-Small models (all under 4B parameters) were chosen for practical reasons: 
-they run on an ordinary personal laptop with no high-end GPU; and using models from different organizations allows comparison and later combination.
+Small models (all under 4B parameters) were chosen for practical reasons. They run on an ordinary personal laptop with no high-end GPU. And using models from different organizations allows comparison and later combination.
 The code is **identical for every model.** Only the model name changes, so the walkthrough shows it once rather than four times.
 
 ### Running everything locally
@@ -48,7 +47,7 @@ The walkthrough stops where one model finishes coding every narrative. Three fur
 
 ### From two report codes to one case code
 
-Because each report (LE and ME) is coded separately, every case ends up with two codes. They are combined into a single **case-level** code with a simple rule: a case counts as physical IPV (1) if **either** its LE report **or** its ME report was coded 1; otherwise 0. This step is done in R by the research team. not by the model, so the rule is explicit and consistent.
+Because each report (LE and ME) is coded separately, every case ends up with two codes. They are combined into a single **case-level** code with a simple rule: a case counts as physical IPV (1) if **either** its LE report **or** its ME report was coded 1; otherwise 0. This step is done in R by the research team, not by the model, so the rule is explicit and consistent.
 
 ## Requirement
 
@@ -57,4 +56,4 @@ Because each report (LE and ME) is coded separately, every case ends up with two
 
 ## Data access and ethics
 
-The narratives are sensitive, restricted-access records and are **not** included in this repository. Only the procedure is shared here; reproducing any results requires separately authorized access to the source data.
+The narratives are sensitive, restricted-access records and are **not** included in this repository. Only the procedure is shared here.
