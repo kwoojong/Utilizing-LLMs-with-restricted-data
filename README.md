@@ -17,9 +17,9 @@ analysis machine.
   model is queried, how its answers are parsed, and how results are assembled.
   It is written for transparency, so the code is shown but not executed.
 
-The walkthrough renders to a GitHub-friendly page when knit
+- **The walkthrough renders to a GitHub-friendly page when knit
 (`rmarkdown::render("ipv_llm_coding_walkthrough.Rmd")`), or GitHub will display
-the `.Rmd` source directly.
+the `.Rmd` source directly.- **
 
 ## Method at a glance
 
