@@ -1,5 +1,6 @@
 ---
-title: "Coding Physical Intimate Partner Violence in Suicide Narratives with a Local LLM: A step-by-step, transparent walkthrough of the coding pipeline"
+title: "Coding Physical Intimate Partner Violence in Suicide Narratives with a Local LLM"
+subtitle: "A step-by-step, transparent walkthrough of the coding pipeline"
 ---
 
 ```{r setup, include=FALSE}
