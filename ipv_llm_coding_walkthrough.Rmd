@@ -47,7 +47,7 @@ if (!dir.exists("output")) dir.create("output")
 
 ## Step 3 — Read the data
 
-#The input is an Excel file already structured in **long format** — that is, one
+# The input is an Excel file already structured in **long format** — that is, one
 row per *narrative* rather than one row per case. Because each case has two
 narratives (LE and ME), a single case appears across two rows. The file has the
 following columns:
@@ -58,8 +58,8 @@ following columns:
 | `report_type` | Which narrative the row is (`LE` or `ME`)|
 | `report`      | The narrative text to be coded           |
 
-#We read the main dataset here, plus the three pilot samples (10, 15, 50) that
-#live in their own files and are used in Step 8.
+# We read the main dataset here, plus the three pilot samples (10, 15, 50) that
+# live in their own files and are used in Step 8.
 
 # Helper: read a long-format file and force the key columns to plain text
 # so nothing is read as a number or factor. Adjust the names if yours differ.
@@ -90,7 +90,7 @@ head(pilot_50)
 
 ## Step 4 — The coding prompt
 
-#The prompt below is the final version of the prompt, after pilot testing. 
+# The prompt below is the final version of the prompt, after pilot testing. 
 
 build_prompt <- function(report_text) {
   paste0(
@@ -152,8 +152,8 @@ Narrative:
 
 ## Step 5 — Query the local model
 
-#Sends one prompt to the local Ollama model and returns its text reply. The same
-#function served all four models in the study. Only `model_name` changes.
+# Sends one prompt to the local Ollama model and returns its text reply. The same
+# function served all four models in the study. Only `model_name` changes.
 
 query_ollama <- function(prompt_text, model_name = "llama3.2:3b") {
   res <- POST(
@@ -174,11 +174,11 @@ query_ollama <- function(prompt_text, model_name = "llama3.2:3b") {
 
 ## Step 6 — Parse the model's answer: read the model's answer and assign values
 
-#Read the model's reply and pull out the code: find the first 0 or 1 in the text
-#and assign that as the answer. If the reply contains no 0 or 1 (the model rambled,
-#errored, or returned nothing usable), assign NA instead, so those cases can be
-#spotted and checked later. The raw reply is kept alongside the assigned code so
-#every decision stays auditable.
+# Read the model's reply and pull out the code: find the first 0 or 1 in the text
+# and assign that as the answer. If the reply contains no 0 or 1 (the model rambled,
+# errored, or returned nothing usable), assign NA instead, so those cases can be
+# spotted and checked later. The raw reply is kept alongside the assigned code so
+# every decision stays auditable.
 
 parse_output <- function(text) {
   m <- str_extract(str_trim(text), "[01]")
@@ -198,15 +198,15 @@ parse_output(test_result)
 
 ---
 
-## Step 8 — Pilot testing
+## Step 8 — Pilot testing.
 
 # Run the three pilot samples (10, 15, 50) through the exact same
-# build_prompt() -> query_ollama() -> parse_output() pipeline as the full run,
+# build_prompt() -> query_ollama() -> read-and-assign pipeline as the full run,
 # so whatever works here is what runs at scale. The pilot data frames were
 # loaded in Step 3.
 
 # Helper: run the coding pipeline over one long-format data frame and return
-# one row per narrative (case_id, report_type, raw_output, parsed code).
+# one row per narrative (case_id, report_type, raw_output, assigned code).
 # tryCatch records errors as text instead of halting, so one bad call never
 # stops the pilot.
 run_coding <- function(df, model_name = "llama3.2:3b") {
@@ -236,8 +236,7 @@ run_coding <- function(df, model_name = "llama3.2:3b") {
   bind_rows(results)
 }
 
-# Run each pilot, print a quick code distribution to sanity-check, and save.
-
+# Run each pilot, take a quick look at the counts, and save.
 pilots <- list(pilot_10 = pilot_10, pilot_15 = pilot_15, pilot_50 = pilot_50)
 
 for (nm in names(pilots)) {
@@ -245,8 +244,7 @@ for (nm in names(pilots)) {
 
   pilot_results <- run_coding(pilots[[nm]])
 
-  # Eyeball the spread of 0s, 1s, and any NA/parse failures.
-
+  # Take a quick look at the counts of 0s, 1s, and any NA (no usable answer).
   print(table(pilot_results$Physical, useNA = "ifany"))
 
   write_xlsx(pilot_results, file.path("output", paste0("results_", nm, ".xlsx")))
@@ -256,8 +254,8 @@ for (nm in names(pilots)) {
 
 ## Step 9 — Run the full dataset
 
-#Same pipeline over every row of `data_long`; one row out per narrative.
-#Reuses run_coding() from Step 8 so the full run can't drift from the pilots.
+# Same pipeline over every row of `data_long`; one row out per narrative.
+# Reuses run_coding() from Step 8 so the full run can't drift from the pilots.
 
 results_long <- run_coding(data_long)
 
@@ -265,6 +263,6 @@ results_long <- run_coding(data_long)
 
 write_xlsx(results_long, "output/results_llama3.2_3b.xlsx")
 
-##This produces one code per *narrative*. Turning those into one code per *case*
-#and the validation and model-ensemble steps that follow, are described in the
-#[README](README.md).
+## This produces one code per *narrative*. Turning those into one code per *case*
+# and the validation and model-ensemble steps that follow, are described in the
+# [README](README.md).
