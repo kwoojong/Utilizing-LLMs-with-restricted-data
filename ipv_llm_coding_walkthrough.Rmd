@@ -187,7 +187,7 @@ parse_output <- function(text) {
 
 ---
 
-## Step 7 — Test a single case
+## Step 7 — Test a single case.
 
 test_prompt <- build_prompt(data_long$report[1])
 cat(test_prompt)
@@ -237,6 +237,7 @@ run_coding <- function(df, model_name = "llama3.2:3b") {
 }
 
 # Run each pilot, print a quick code distribution to sanity-check, and save.
+
 pilots <- list(pilot_10 = pilot_10, pilot_15 = pilot_15, pilot_50 = pilot_50)
 
 for (nm in names(pilots)) {
@@ -245,6 +246,7 @@ for (nm in names(pilots)) {
   pilot_results <- run_coding(pilots[[nm]])
 
   # Eyeball the spread of 0s, 1s, and any NA/parse failures.
+
   print(table(pilot_results$Physical, useNA = "ifany"))
 
   write_xlsx(pilot_results, file.path("output", paste0("results_", nm, ".xlsx")))
@@ -259,7 +261,7 @@ for (nm in names(pilots)) {
 
 results_long <- run_coding(data_long)
 
-## Step 10 — Save the results
+## Step 10 — Save the results.
 
 write_xlsx(results_long, "output/results_llama3.2_3b.xlsx")
 
