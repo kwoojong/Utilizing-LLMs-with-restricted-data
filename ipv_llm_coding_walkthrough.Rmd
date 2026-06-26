@@ -212,10 +212,8 @@ parse_output(test_result)
 
 run_coding <- function(df, model_name = "llama3.2:3b") {
   results <- vector("list", nrow(df))
-
   for (i in seq_len(nrow(df))) {
     cat("Running row", i, "of", nrow(df), "\n")
-
     prompt_i <- build_prompt(df$report[i])
     raw_result <- tryCatch(
       query_ollama(prompt_i, model_name = model_name),
@@ -231,7 +229,6 @@ run_coding <- function(df, model_name = "llama3.2:3b") {
       parse_output(raw_result)
     )
   }
-
   bind_rows(results)
 }
 
