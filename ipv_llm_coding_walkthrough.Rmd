@@ -48,7 +48,6 @@ getwd()  # confirm we are where we expect to be
 # Create an output folder if it does not already exist.
 if (!dir.exists("output")) dir.create("output")
 
-
 ## Step 3 — Read the data
 
 #The input is an Excel file in **long format**: one row per narrative, with columns
@@ -146,12 +145,10 @@ query_ollama <- function(prompt_text, model_name = "llama3.2:3b") {
   stop_for_status(res)
   content(res, as = "parsed", type = "application/json")$response
 
-
 ## Step 6 — Parse the model's answer
 
 #Extract the first `0`/`1` from the reply; return `NA` if none is found. The raw
 #output is kept alongside the parsed code so every decision stays auditable.
-
 
 parse_output <- function(text) {
   m <- str_extract(str_trim(text), "[01]")
@@ -201,7 +198,6 @@ for (i in seq_len(nrow(small_data))) {
 
 small_results <- bind_rows(results_list)
 small_results
-
 
 ## Step 9 — Run the full dataset
 
