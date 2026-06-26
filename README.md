@@ -1,4 +1,4 @@
-# Coding Physical Intimate Partner Violence in Suicide Narratives with a Local LLM
+# Coding Physical Intimate Partner Violence in Suicide Narratives with Local LLMs
 
 This repository documents a transparent procedure for coding suicide case
 narratives for evidence of **physical intimate partner violence (IPV)** in the
