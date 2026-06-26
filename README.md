@@ -19,7 +19,7 @@ analysis machine.
 
 - **The walkthrough renders to a GitHub-friendly page when knit
 (`rmarkdown::render("ipv_llm_coding_walkthrough.Rmd")`), or GitHub will display
-the `.Rmd` source directly.- **
+the `.Rmd` source directly.**
 
 ## Method at a glance
 
