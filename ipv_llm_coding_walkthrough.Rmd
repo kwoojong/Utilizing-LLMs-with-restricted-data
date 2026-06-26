@@ -8,23 +8,18 @@ subtitle: "A step-by-step walkthrough of the coding pipeline"
 # (eval = FALSE), because the underlying narratives are restricted data and the
 # model is served locally.
 
-
 ## About this walkthrough
-
 This is a readable, step-by-step record of the coding pipeline: the exact prompt,
 how the local model is queried, how its answers are parsed, and how the results
 are saved. The code is shown but **not run** (the narratives are restricted).
 
-Study background, design rationale, and what happens after this script — the
-four models compared, how the prompt was developed, and the validation and
-ensemble steps — are in the [README](README.md).
+Study background and design rationale are in the [README](README.md).
 
 In short: each case has two narratives, **LE** (law enforcement) and **ME**
 (coroner/medical examiner). Each narrative is coded on its own as physical IPV
 present (`1`) or not (`0`), using a local model at `temperature = 0`.
 
 ---
-
 ## Step 1 — Packages
 
 # Run once, if these are not already installed.
@@ -40,7 +35,7 @@ library(writexl)
 
 ---
 
-## Step 2 — setting up Working directory.
+## Step 2 — Setting up a working directory.
 
 setwd("~/Documents/R/LLM sample")
 getwd()  # confirm we are where we expect to be
@@ -48,27 +43,54 @@ getwd()  # confirm we are where we expect to be
 # Create an output folder if it does not already exist.
 if (!dir.exists("output")) dir.create("output")
 
+---
+
 ## Step 3 — Read the data
 
-#The input is an Excel file in **long format**: one row per narrative, with columns
-#`case_id`, `report_type` (`LE` or `ME`), and `report` (the narrative text).
+#The input is an Excel file already structured in **long format** — that is, one
+row per *narrative* rather than one row per case. Because each case has two
+narratives (LE and ME), a single case appears across two rows. The file has the
+following columns:
 
-data_long <- read_excel("data/LLM sample.xlsx")
+| Column        | Meaning                                  |
+|---------------|------------------------------------------|
+| `case_id`     | Case identifier                          |
+| `report_type` | Which narrative the row is (`LE` or `ME`)|
+| `report`      | The narrative text to be coded           |
 
-# Ensure the key columns are plain text. Adjust the names if yours differ.
-data_long <- data_long %>%
-  mutate(
-    case_id     = as.character(case_id),
-    report_type = as.character(report_type),
-    report      = as.character(report)
-  )
+#We read the main dataset here, plus the three pilot samples (10, 15, 50) that
+#live in their own files and are used in Step 8.
 
+# Helper: read a long-format file and force the key columns to plain text
+# so nothing is read as a number or factor. Adjust the names if yours differ.
+read_long <- function(path) {
+  read_excel(path) %>%
+    mutate(
+      case_id     = as.character(case_id),
+      report_type = as.character(report_type),
+      report      = as.character(report)
+    )
+}
+
+# Main dataset (used in Step 9, the full run).
+data_long <- read_long("data/LLM sample.xlsx")
+
+# Pilot datasets (used in Step 8). Adjust the paths/names to match your folder.
+pilot_10 <- read_long("data/pilot_10.xlsx")
+pilot_15 <- read_long("data/pilot_15.xlsx")
+pilot_50 <- read_long("data/pilot_50.xlsx")
+
+# Quick look at each to confirm the columns came in as expected.
 head(data_long)
+head(pilot_10)
+head(pilot_15)
+head(pilot_50)
+
+---
 
 ## Step 4 — The coding prompt
 
-#Every narrative is wrapped in this exact instruction block; only the narrative
-#text changes. The reasoning behind the wording is in the README.
+#The prompt below is the final version of the prompt, after pilot testing. 
 
 build_prompt <- function(report_text) {
   paste0(
@@ -124,12 +146,14 @@ Do not include any text, labels, or explanation.
 
 Narrative:
 ", report_text)
+}
 
+---
 
 ## Step 5 — Query the local model
 
 #Sends one prompt to the local Ollama model and returns its text reply. The same
-#function served all four models in the study — only `model_name` changes.
+#function served all four models in the study. Only `model_name` changes.
 
 query_ollama <- function(prompt_text, model_name = "llama3.2:3b") {
   res <- POST(
@@ -144,15 +168,24 @@ query_ollama <- function(prompt_text, model_name = "llama3.2:3b") {
   )
   stop_for_status(res)
   content(res, as = "parsed", type = "application/json")$response
+}
 
-## Step 6 — Parse the model's answer
+---
 
-#Extract the first `0`/`1` from the reply; return `NA` if none is found. The raw
-#output is kept alongside the parsed code so every decision stays auditable.
+## Step 6 — Parse the model's answer: read the model's answer and assign values
+
+#Read the model's reply and pull out the code: find the first 0 or 1 in the text
+#and assign that as the answer. If the reply contains no 0 or 1 (the model rambled,
+#errored, or returned nothing usable), assign NA instead, so those cases can be
+#spotted and checked later. The raw reply is kept alongside the assigned code so
+#every decision stays auditable.
 
 parse_output <- function(text) {
   m <- str_extract(str_trim(text), "[01]")
   data.frame(Physical = ifelse(is.na(m), NA_integer_, as.integer(m)))
+}
+
+---
 
 ## Step 7 — Test a single case
 
@@ -163,72 +196,68 @@ test_result <- query_ollama(test_prompt)
 cat(test_result)
 parse_output(test_result)
 
+---
 
-## Step 8 — Run a small batch (sanity check)
+## Step 8 — Pilot testing
 
-#Code the first five rows before running everything. Each iteration builds the
-#prompt, queries the model (`tryCatch` records errors instead of halting), parses
-#the answer, and stores the case ID, report type, raw output, and code together.
+# Run the three pilot samples (10, 15, 50) through the exact same
+# build_prompt() -> query_ollama() -> parse_output() pipeline as the full run,
+# so whatever works here is what runs at scale. The pilot data frames were
+# loaded in Step 3.
 
-small_data   <- data_long[1:5, ]
-results_list <- vector("list", nrow(small_data))
+# Helper: run the coding pipeline over one long-format data frame and return
+# one row per narrative (case_id, report_type, raw_output, parsed code).
+# tryCatch records errors as text instead of halting, so one bad call never
+# stops the pilot.
+run_coding <- function(df, model_name = "llama3.2:3b") {
+  results <- vector("list", nrow(df))
 
-for (i in seq_len(nrow(small_data))) {
-  cat("Running row", i, "of", nrow(small_data), "\n")
+  for (i in seq_len(nrow(df))) {
+    cat("Running row", i, "of", nrow(df), "\n")
 
-  prompt_i <- build_prompt(small_data$report[i])
+    prompt_i <- build_prompt(df$report[i])
 
-  raw_result <- tryCatch(
-    query_ollama(prompt_i),
-    error = function(e) paste("ERROR:", e$message)
-  )
+    raw_result <- tryCatch(
+      query_ollama(prompt_i, model_name = model_name),
+      error = function(e) paste("ERROR:", e$message)
+    )
 
-  parsed_result <- parse_output(raw_result)
+    results[[i]] <- cbind(
+      data.frame(
+        case_id     = df$case_id[i],
+        report_type = df$report_type[i],
+        raw_output  = raw_result,
+        stringsAsFactors = FALSE
+      ),
+      parse_output(raw_result)
+    )
+  }
 
-  results_list[[i]] <- cbind(
-    data.frame(
-      case_id     = small_data$case_id[i],
-      report_type = small_data$report_type[i],
-      raw_output  = raw_result,
-      stringsAsFactors = FALSE
-    ),
-    parsed_result
-  )
+  bind_rows(results)
 }
 
-small_results <- bind_rows(results_list)
-small_results
+# Run each pilot, print a quick code distribution to sanity-check, and save.
+pilots <- list(pilot_10 = pilot_10, pilot_15 = pilot_15, pilot_50 = pilot_50)
+
+for (nm in names(pilots)) {
+  cat("\n=== Pilot:", nm, "===\n")
+
+  pilot_results <- run_coding(pilots[[nm]])
+
+  # Eyeball the spread of 0s, 1s, and any NA/parse failures.
+  print(table(pilot_results$Physical, useNA = "ifany"))
+
+  write_xlsx(pilot_results, file.path("output", paste0("results_", nm, ".xlsx")))
+}
+
+---
 
 ## Step 9 — Run the full dataset
 
-#Same loop over every row of `data_long`; one row out per narrative.
+#Same pipeline over every row of `data_long`; one row out per narrative.
+#Reuses run_coding() from Step 8 so the full run can't drift from the pilots.
 
-results_list <- vector("list", nrow(data_long))
-
-for (i in seq_len(nrow(data_long))) {
-  cat("Running row", i, "of", nrow(data_long), "\n")
-
-  prompt_i <- build_prompt(data_long$report[i])
-
-  raw_result <- tryCatch(
-    query_ollama(prompt_i),
-    error = function(e) paste("ERROR:", e$message)
-  )
-
-  parsed <- parse_output(raw_result)
-
-  results_list[[i]] <- cbind(
-    data.frame(
-      case_id     = data_long$case_id[i],
-      report_type = data_long$report_type[i],
-      raw_output  = raw_result,
-      stringsAsFactors = FALSE
-    ),
-    parsed
-  )
-}
-
-results_long <- bind_rows(results_list)
+results_long <- run_coding(data_long)
 
 ## Step 10 — Save the results
 
