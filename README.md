@@ -1,14 +1,6 @@
 # Coding Physical Intimate Partner Violence in Suicide Narratives with Local LLMs
 
-This repository documents a transparent procedure for coding suicide case
-narratives for evidence of **physical intimate partner violence (IPV)** in the
-period before the death, using an **open-weight large language model run
-locally**. Each case has two source narratives, **LE** (law enforcement) and
-**ME** (coroner/medical examiner), and each narrative is coded independently as
-physical IPV *present* (1) or *not present* (0) under a deliberately conservative
-coding standard. Because the underlying records are restricted, the model is
-served locally through [Ollama](https://ollama.com) so the text never leaves the
-analysis machine.
+This repository documents a transparent procedure for coding suicide case narratives for evidence of **physical intimate partner violence (IPV)** in the period before the death, using an **open-weight large language model run locally**. Each case has two source narratives, **LE** (law enforcement) and **ME** (coroner/medical examiner), and each narrative is coded independently as physical IPV *present* (1) or *not present* (0) under a deliberately conservative coding standard. Because the underlying records are restricted, the model is served locally through [Ollama](https://ollama.com) so the text never leaves the analysis machine.
 
 ## What's here
 
@@ -47,10 +39,10 @@ circumstances leading up to the death.
 
 The goal is narrow and specific: decide whether **physical** intimate partner
 violence appears in the circumstances before the suicide, recorded as a simple
-yes/no (1 or 0). We focused on *physical* IPV — rather than emotional or sexual
-IPV — because physical violence usually shows up as concrete, observable actions
-(someone was hit, choked, and so on), which is easier to define clearly and code
-consistently than more subjective forms of abuse.
+yes/no (1 or 0). We focused on *physical* IPV because physical violence usually 
+shows up as concrete, observable actions(someone was hit, choked, and so on), 
+which is easier to define clearly and code consistently than more subjective 
+forms of abuse.
 
 ### The four models
 
