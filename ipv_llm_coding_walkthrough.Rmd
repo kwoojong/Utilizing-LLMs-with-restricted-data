@@ -205,11 +205,6 @@ parse_output(test_result)
 # so whatever works here is what runs at scale. The pilot data frames were
 # loaded in Step 3.
 
-# Helper: run the coding pipeline over one long-format data frame and return
-# one row per narrative (case_id, report_type, raw_output, assigned code).
-# tryCatch records errors as text instead of halting, so one bad call never
-# stops the pilot.
-
 run_coding <- function(df, model_name = "llama3.2:3b") {
   results <- vector("list", nrow(df))
 
