@@ -3,40 +3,37 @@ title: "Coding Physical Intimate Partner Violence in Suicide Narratives with a L
 subtitle: "A step-by-step, transparent walkthrough of the coding pipeline"
 ---
 
-```{r setup, include=FALSE}
 # This document is a TRANSPARENCY WALKTHROUGH, not an executable analysis.
 # Code chunks are shown for documentation but are not run when the file is knit
 # (eval = FALSE), because the underlying narratives are restricted data and the
 # model is served locally. The goal is to let a reader follow exactly what the
 # procedure does, step by step.
-knitr::opts_chunk$set(eval = FALSE, echo = TRUE, message = FALSE, warning = FALSE)
-```
 
 ## What this document is
 
-This is a complete, readable record of how we use a **locally hosted large
+This is a complete, readable record of how we use a locally hosted large
 language model (LLM)** to code suicide case narratives for evidence of
-**physical intimate partner violence (IPV)** in the period before the death.
+physical intimate partner violence (IPV)** in the period before the death.
 
 It is written so that another researcher can follow every step and understand
 exactly what the model is asked, how its answers are captured, and how the
-results are assembled — *without* needing to run anything and *without* access
+results are assembled without needing to run anything and without access
 to the underlying data.
 
 A few framing points before the code:
 
-- **Why a local model.** The narratives are sensitive, restricted-access
+- Why a local model: The narratives are sensitive, restricted-access
   records. We run an open-weight model (`llama3.2:3b`) locally through
   [Ollama](https://ollama.com), so the text never leaves the analysis machine
   and is never sent to a third-party API.
-- **Two narratives per case.** Each case has two separate source reports: a
-  **law enforcement (LE)** narrative and a **coroner/medical examiner (ME)**
+- Two narratives per case: Each case has two separate source reports: a
+  law enforcement (LE) narrative and a coroner/medical examiner (ME)
   narrative. They describe the decedent and the circumstances before the death
   from two different vantage points.
-- **Each report is coded on its own.** We deliberately send one narrative to
+- Each report is coded on its own.** We deliberately send one narrative to
   the model at a time. The model never sees both reports together, so a code
   for the LE narrative cannot be influenced by the ME narrative or vice versa.
-- **Determinism.** The model is queried with `temperature = 0`, which makes its
+- Determinism: The model is queried with `temperature = 0`, which makes its
   output as reproducible as the model allows for a given prompt.
 
 ---
