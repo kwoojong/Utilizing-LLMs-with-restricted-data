@@ -4,7 +4,7 @@ This repository documents a transparent procedure for coding suicide case narrat
 
 ## What's here
 
-- **[`ipv_llm_coding_walkthrough.Rmd`](ipv_llm_coding_walkthrough.Rmd)** — a  short, readable walkthrough of the pipeline itself: the exact prompt, how the local model is queried, how its answers are parsed, and how results are saved. The code is shown for transparency but not executed.
+- **[`ipv_llm_coding_walkthrough.Rmd`](ipv_llm_coding_walkthrough.Rmd)**: a  short, readable walkthrough of the pipeline itself: the exact prompt, how the local model is queried, how its answers are parsed, and how results are saved. The code is shown for transparency but not executed.
 
 - The walkthrough is intentionally light on prose so the code is easy to follow. **The background, design rationale, and post-processing live in this README** (below), so the script and the explanation stay cleanly separated.
 
