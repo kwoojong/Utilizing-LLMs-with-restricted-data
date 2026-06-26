@@ -142,8 +142,7 @@ local model), `jsonlite` (JSON handling), `readxl` / `writexl` (Excel I/O),
 
 ```{r install, eval=FALSE}
 # Run once, if these are not already installed.
-install.packages(c("httr", "jsonlite", "readxl", "stringr",
-                    "dplyr", "writexl"))
+install.packages(c("httr", "jsonlite", "readxl", "stringr", "dplyr", "writexl"))
 ```
 
 ```{r libraries}
