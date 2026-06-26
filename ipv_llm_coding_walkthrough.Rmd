@@ -11,11 +11,11 @@ subtitle: "A step-by-step walkthrough of the coding pipeline"
 ## About this walkthrough
 This is a readable, step-by-step record of the coding pipeline: the exact prompt,
 how the local model is queried, how its answers are parsed, and how the results
-are saved. The code is shown but **not run** (the narratives are restricted).
+are saved. The code is shown but not run (the narratives are restricted).
 
 Study background and design rationale are in the [README](README.md).
 
-In short: each case has two narratives, **LE** (law enforcement) and **ME**
+In short: each case has two narratives, LE (law enforcement) and ME
 (coroner/medical examiner). Each narrative is coded on its own as physical IPV
 present (`1`) or not (`0`), using a local model at `temperature = 0`.
 
@@ -47,7 +47,7 @@ if (!dir.exists("output")) dir.create("output")
 
 ## Step 3 — Read the data
 
-# The input is an Excel file already structured in **long format** — that is, one
+# The input is an Excel file already structured in long format — that is, one
 row per *narrative* rather than one row per case. Because each case has two
 narratives (LE and ME), a single case appears across two rows. The file has the
 following columns:
