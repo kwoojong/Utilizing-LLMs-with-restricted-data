@@ -38,7 +38,7 @@ library(writexl)
 ## Step 2 — Setting up a working directory.
 
 setwd("~/Documents/R/LLM sample")
-getwd()  # confirm we are where we expect to be
+getwd()  # confirm we are where we expect to be.
 
 # Create an output folder if it does not already exist.
 if (!dir.exists("output")) dir.create("output")
