@@ -48,9 +48,9 @@ if (!dir.exists("output")) dir.create("output")
 ## Step 3 — Read the data
 
 # The input is an Excel file already structured in long format — that is, one
-row per *narrative* rather than one row per case. Because each case has two
-narratives (LE and ME), a single case appears across two rows. The file has the
-following columns:
+# row per *narrative* rather than one row per case. Because each case has two
+# narratives (LE and ME), a single case appears across two rows. The file has the
+# following columns:
 
 | Column        | Meaning                                  |
 |---------------|------------------------------------------|
